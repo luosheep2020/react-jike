@@ -13,17 +13,19 @@ import {
 import ReactQuill from "react-quill";
 import 'react-quill/dist/quill.snow.css'
 import {PlusOutlined} from '@ant-design/icons'
-import {Link} from 'react-router-dom'
+import {Link, useSearchParams} from 'react-router-dom'
 import './index.scss'
-import { useState} from "react";
-import {createArticleAPI} from "@/apis/article.js";
+import {useEffect, useState} from "react";
+import {createArticleAPI, getArticleById, updateArticleAPI} from "@/apis/article.js";
 import {useChannel} from "@/hooks/useChannel.js";
 
 const {Option} = Select
 
 const Publish = () => {
+    const [searchParams] = useSearchParams();
     const [imageList, setImageList] = useState([])
     const {channelList} = useChannel();
+    const articleId = searchParams.get('id')
     const onFinish = (formValue) => {
         console.log(formValue)
         const {title, content, channel_id} = formValue
@@ -45,7 +47,12 @@ const Publish = () => {
             },
             channel_id
         }
-        createArticleAPI(reqData)
+        if (articleId){
+            updateArticleAPI({...reqData,id:articleId})
+        }else {
+            createArticleAPI(reqData)
+        }
+
     }
     const onChange = (value) => {
         console.log('正在上传。。。。')
@@ -57,13 +64,31 @@ const Publish = () => {
         console.log('change')
         setImageType(e.target.value)
     }
+    const [form] = Form.useForm();
+    useEffect(() => {
+        async function getArticleDetail() {
+            const res = await getArticleById(articleId);
+            form.setFieldsValue({
+                ...res.data,
+                type: res.data.cover.type
+            })
+            setImageType(res.data.cover.type)
+            setImageList(res.data.cover.images.map(url => {
+                return {url}
+            }))
+        }
+        if (articleId){
+            getArticleDetail()
+        }
+
+    }, [articleId, form]);
     return (
         <div className="publish">
             <Card
                 title={
                     <Breadcrumb items={[
                         {title: <Link to={'/'}>首页</Link>},
-                        {title: `文章`},
+                        {title: `${articleId?'编辑':'发布'}文章`},
                     ]}
                     />
                 }
@@ -73,6 +98,7 @@ const Publish = () => {
                     wrapperCol={{span: 16}}
                     initialValues={{type: 0}}
                     onFinish={onFinish}
+                    form={form}
                 >
                     <Form.Item
                         label="标题"
@@ -109,6 +135,7 @@ const Publish = () => {
                             name='image'
                             maxCount={imageType}
                             onChange={onChange}
+                            fileList={imageList}
                         >
                             <div style={{marginTop: 8}}>
                                 <PlusOutlined/>
